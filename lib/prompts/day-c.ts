@@ -35,6 +35,7 @@ From this data, extract:
    - Sectors with multiple tokens showing positive net flows (e.g., AI tokens, DeFi lending, RWA)
    - Tokens with high trader counts (many unique wallets buying = conviction signal)
    - Large individual trades as notable whale moves
+   - For negative flows, frame them constructively (e.g., "DeFi Profit-Taking" not "DeFi Outflows")
 2. TOP 5 tokens by smart money net flow — include MC and 24h volume
 
 OUTPUT FORMAT (COPY EXACTLY):
@@ -43,13 +44,23 @@ Return ONLY this exact HTML as a plain text string:
 📈 <b>Daily Onchain Digest (Weekly Roundup)</b>
 
 <b>🔥 Emerging Trends This Week</b>
-• <b>[Trend Name]</b>: [TOKEN1] (+$[AMT]), [TOKEN2] (+$[AMT]) — [1 sentence insight]
-• <b>[Trend Name]</b>: [TOKEN1] (+$[AMT]), [TOKEN2] (+$[AMT]) — [1 sentence insight]
-• <b>[Trend Name]</b>: [TOKEN1] (+$[AMT]), [TOKEN2] (+$[AMT]) — [1 sentence insight]
-• <b>[Trend Name]</b>: [TOKEN1] (+$[AMT]), [TOKEN2] (+$[AMT]) — [1 sentence insight]
-• <b>[Trend Name]</b>: [TOKEN1] (+$[AMT]), [TOKEN2] (+$[AMT]) — [1 sentence insight]
 
-<b>📊 Largest Smart Money Flows (Top 5)</b>
+1️⃣ <b>[Trend Name]</b>
+<b>[TOKEN1]</b> (+$[AMT]), <b>[TOKEN2]</b> (+$[AMT])
+
+2️⃣ <b>[Trend Name]</b>
+<b>[TOKEN1]</b> (+$[AMT]), <b>[TOKEN2]</b> (+$[AMT])
+
+3️⃣ <b>[Trend Name]</b>
+<b>[TOKEN1]</b> (+$[AMT]), <b>[TOKEN2]</b> (+$[AMT])
+
+4️⃣ <b>[Trend Name]</b>
+<b>[TOKEN1]</b> (+$[AMT]), <b>[TOKEN2]</b> (+$[AMT])
+
+5️⃣ <b>[Trend Name]</b>
+<b>[TOKEN1]</b> (+$[AMT]), <b>[TOKEN2]</b> (+$[AMT])
+
+<b>📊 Top Smart Money Flows</b>
 • <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
 • <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
 • <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
@@ -60,7 +71,13 @@ CRITICAL OUTPUT RULES:
 - Return as plain text string, NOT as JSON object
 - Do NOT wrap in {"output": "..."} or any JSON structure
 - Output the raw HTML string directly
-- Use • for bullet points (NOT dash or hyphen)
+- EMERGING TRENDS FORMAT:
+  * Each trend is a numbered block using emoji numbers (1️⃣ 2️⃣ 3️⃣ 4️⃣ 5️⃣)
+  * Line 1: number emoji + bolded trend name
+  * Line 2: bolded token symbols with flow amounts in parentheses, comma-separated
+  * NO third line — no insight or explanation text
+  * Leave a blank line between each numbered block
+- Use • for bullet points in Top Smart Money Flows section only
 - Replace [brackets] with actual data
 - CHAIN FORMAT: Use (ETH), (SOL), (BSC), (BASE) - uppercase in parentheses
 - MONEY FORMAT:
@@ -69,9 +86,8 @@ CRITICAL OUTPUT RULES:
   * Millions: $1.5M not $1,500,000 (uppercase M)
   * Billions: $1.2B (uppercase B)
 - Format market caps and volumes consistently with money format above
-- Use <b> tags for token symbols in Largest Smart Money Flows section
-- Use <b> tags for trend names in Emerging Trends section
-- NO "net inflow" text - just the amount with + prefix
+- Use <b> tags for token symbols in BOTH sections
+- NO "net inflow" text - just the amount with + or - prefix
 - TOKEN SYMBOLS: Use ONLY alphanumeric characters (A-Z, 0-9, no special chars)
 - Replace any ampersand with "and" in token names
 - Remove any < or > characters from token names
@@ -83,8 +99,7 @@ CRITICAL OUTPUT RULES:
 - NEVER output "Data Unavailable" for MC or Vol — use the screener data provided
 - If MC or Vol is zero or missing, omit that specific metric rather than showing "Data Unavailable"
 - Stablecoins and major L1 tokens have already been filtered out
-- Keep total message under 3500 characters
-- Emerging Trends insights should be data-driven: mention specific trader counts, accumulation patterns, or notable whale activity from the individual trades data`;
+- Keep total message under 3500 characters`;
 
 export function buildDayCUserPrompt(data: {
   weeklyTrades: NansenDEXTrade[];
@@ -204,8 +219,8 @@ export function buildDayCUserPrompt(data: {
   prompt += `IMPORTANT: Use ALL available data sources above to populate both sections. Never show "Data Unavailable" — use the MC and Vol from the screener data. If a metric is zero, simply omit it.\n`;
   prompt += `1. Emerging Trends: Group tokens by their actual sector data AND trading patterns. Each trend should:\n`;
   prompt += `   - Name 2-3 tokens with their net flow amounts\n`;
-  prompt += `   - Include a 1-sentence data-driven insight (e.g., "3 unique wallets accumulated, largest single trade $250K")\n`;
   prompt += `   - Be based on ACTUAL sector tags from the screener data, NOT generic categories\n`;
+  prompt += `   - NO explainer or insight text — just the trend name and token amounts\n`;
   prompt += `2. Top 5 tokens by net flow — include MC and 7d volume from screener data\n`;
   prompt += `Use real data from above. Format as HTML for Telegram.`;
 
