@@ -17,27 +17,27 @@ From this data, extract:
 OUTPUT FORMAT (COPY EXACTLY):
 Return ONLY this exact HTML as a plain text string:
 
-<b>Daily Onchain Digest</b>
+📈 <b>Daily Onchain Digest</b>
 
-<b>Smart Money Memecoin Flows</b>
-\u2022 <b>[TOKEN1]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
-\u2022 <b>[TOKEN2]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
-\u2022 <b>[TOKEN3]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
-\u2022 <b>[TOKEN4]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
-\u2022 <b>[TOKEN5]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+<b>🤓 Smart Money Memecoin Flows</b>
+• <b>[TOKEN1]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+• <b>[TOKEN2]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+• <b>[TOKEN3]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+• <b>[TOKEN4]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+• <b>[TOKEN5]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
 
-<b>Hyperliquid DEX Perps Positioning</b>
-\u2022 [TOKEN1]: [X]% long | $[AMOUNT] position
-\u2022 [TOKEN2]: [X]% long | $[AMOUNT] position
-\u2022 [TOKEN3]: [X]% long | $[AMOUNT] position
-\u2022 [TOKEN4]: [X]% long | $[AMOUNT] position
-\u2022 [TOKEN5]: [X]% long | $[AMOUNT] position
+<b>📊 Hyperliquid DEX Perps Positioning</b>
+• [TOKEN1]: [X]% long | $[AMOUNT] position
+• [TOKEN2]: [X]% long | $[AMOUNT] position
+• [TOKEN3]: [X]% long | $[AMOUNT] position
+• [TOKEN4]: [X]% long | $[AMOUNT] position
+• [TOKEN5]: [X]% long | $[AMOUNT] position
 
 CRITICAL OUTPUT RULES:
 - Return as plain text string, NOT as JSON object
 - Do NOT wrap in {"output": "..."} or any JSON structure
 - Output the raw HTML string directly
-- Use \u2022 for bullet points (not -)
+- Use • for bullet points (NOT - or *)
 - Replace [brackets] with actual data
 - CHAIN FORMAT: Use (ETH), (SOL), (BSC), (BASE) - uppercase in parentheses
 - MONEY FORMAT:
@@ -51,8 +51,13 @@ CRITICAL OUTPUT RULES:
 - Hyperliquid section sorted by position size (descending)
 - Ensure all HTML tags are properly closed
 - NO additional text before or after the HTML
-- Focus on actual memecoins (PEPE, WIF, BONK, etc.)
-- Exclude major cryptocurrencies and wrapped tokens`;
+- Focus on actual memecoins (PEPE, WIF, BONK, DOGE, SHIB, FLOKI, etc.)
+- Exclude major cryptocurrencies and wrapped tokens
+- If fewer than 5 memecoins exist in data, show however many are available (minimum 3)
+- If fewer than 5 perp positions exist, show however many are available (minimum 3)
+- NEVER output "No significant activity detected" — always use available data to populate entries
+- If memecoin data is sparse, include any small-cap tokens with smart money activity
+- If perp data is sparse, show the top positions regardless of size`;
 
 export function buildDayBUserPrompt(data: {
   memecoinTrades: NansenDEXTrade[];
@@ -71,7 +76,7 @@ export function buildDayBUserPrompt(data: {
       prompt += `\n`;
     });
   } else {
-    prompt += `No screener data available.\n`;
+    prompt += `No screener data available — use DEX trades below instead.\n`;
   }
   prompt += `\n`;
 
@@ -96,7 +101,7 @@ export function buildDayBUserPrompt(data: {
         prompt += `- ${symbol} (${info.chain}): ${formatUsd(info.totalUsd)} total, ${info.count} trades\n`;
       });
   } else {
-    prompt += `No memecoin trades detected.\n`;
+    prompt += `No memecoin trades detected — use screener data above for memecoin flow entries.\n`;
   }
   prompt += `\n`;
 
@@ -131,13 +136,13 @@ export function buildDayBUserPrompt(data: {
       prompt += `- ${trade.trader} ${trade.action} ${trade.side} ${trade.token}: ${formatUsd(trade.value_usd)} at ${formatUsd(trade.price_usd)}\n`;
     });
   } else {
-    prompt += `No Hyperliquid perp trades detected.\n`;
+    prompt += `No Hyperliquid perp trades detected — use any available data to populate the perps section.\n`;
   }
   prompt += `\n`;
 
-  prompt += `Requirements:\n`;
+  prompt += `IMPORTANT: Use ALL available data sources above to populate both sections. Always fill the template with real data. Never say "no activity detected".\n`;
   prompt += `1. Top 5 memecoins by smart money net flows - include MC and 24h volume\n`;
-  prompt += `2. Top 5 Hyperliquid perpetual positioning by long/short ratio\n`;
+  prompt += `2. Top 5 Hyperliquid perpetual positioning by position size\n`;
   prompt += `Format as Telegram HTML digest.`;
 
   return prompt;

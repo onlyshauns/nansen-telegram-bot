@@ -9,6 +9,7 @@ You will be given pre-fetched data including:
 - Smart money net flow data (token balances and flows)
 - Token screener data with market caps and volumes
 - High conviction transfer data
+- Smart money DEX trades
 
 From this data, extract:
 1. TOP 5 tokens by smart money net flow (exclude stablecoins, BTC, ETH, SOL, wrapped/staking versions)
@@ -17,16 +18,16 @@ From this data, extract:
 OUTPUT FORMAT (COPY EXACTLY):
 Your response must be ONLY the following HTML structure with real data:
 
-<b>Daily Onchain Digest</b>
+📈 <b>Daily Onchain Digest</b>
 
-<b>Smart Money Flows</b>
+<b>🤓 Smart Money Flows</b>
 • <b>[TOKEN1]</b>: +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
 • <b>[TOKEN2]</b>: +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
 • <b>[TOKEN3]</b>: +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
 • <b>[TOKEN4]</b>: +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
 • <b>[TOKEN5]</b>: +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
 
-<b>High Conviction Accumulation</b>
+<b>🎯 High Conviction Accumulation</b>
 <i>3+ Smart Entities buying same token</i>
 • [TOKEN1]: [X] entities | +$[AMOUNT]
 • [TOKEN2]: [X] entities | +$[AMOUNT]
@@ -34,21 +35,23 @@ Your response must be ONLY the following HTML structure with real data:
 • [TOKEN4]: [X] entities | +$[AMOUNT]
 • [TOKEN5]: [X] entities | +$[AMOUNT]
 
-RULES:
-- Output ONLY the HTML above - no other text
-- Replace [brackets] with actual data
-- Use real token names and dollar amounts
+CRITICAL OUTPUT RULES:
+- Output ONLY the HTML above - no other text, no explanations, no commentary
+- Use • for bullet points (NOT - or *)
+- Always start a sentence or bullet point with a capitalised letter
+- MONEY FORMAT: Under $1K: $999 | Thousands: $15.7K | Millions: $1.5M | Billions: $1.2B (always uppercase K/M/B)
+- Format market caps and volumes consistently with money format above
+- Use <b> tags for token symbols in Smart Money Flows section
 - Sort by highest amounts first
+- NO "net inflow" text - just the amount with + prefix
+- Ensure all HTML tags are properly closed
+- If fewer than 5 Smart Money Flow tokens exist, show however many are available (minimum 3)
+- If fewer than 5 High Conviction tokens exist, show however many qualify (minimum 3+ entities)
+- If very few tokens qualify for a section, still show at least 3 entries with the best available data
+- NEVER output "DATA UNAVAILABLE" — always use the provided data to fill entries
 - EXCLUDE: BTC, ETH, SOL, stablecoins, and any wrapped/liquid staking versions
 - EXCLUDE PATTERNS: Tokens ending in "SOL" (DZSOL, JITOSOL), ending in "ETH" (stETH, rETH), starting with "w" (wBTC, wETH)
-- Format numbers: $465.1K not $465,100
-- Format market caps and volumes consistently: $2.3M, $450K
-- Use bullet point: \u2022 (not -)
-- Use <b> tags for token symbols in Smart Money Flows section
-- NO explanations, NO commentary
-- Output raw HTML text only
-- Complete the ENTIRE template
-- Always start a sentence or bullet point with a capitalised letter`;
+- Output raw HTML text only`;
 
 export function buildDayAUserPrompt(data: {
   dexTrades: NansenDEXTrade[];
@@ -56,7 +59,7 @@ export function buildDayAUserPrompt(data: {
   flowIntelligence: { chain: string; symbol: string; flows: NansenFlowIntelligence }[];
   screenerData: NansenTokenScreenerItem[];
 }): string {
-  let prompt = `Generate today's smart money digest analyzing the past 24 hours.\n\nHere is the pre-fetched data:\n\n`;
+  let prompt = `Here is today's smart money activity data from the past 24 hours. Generate the Daily Onchain Digest.\n\n`;
 
   // Smart Money Screener Data (net flows + market data)
   prompt += `## Token Screener Data (Smart Money Net Flows, Market Cap, Volume)\n`;
@@ -68,7 +71,7 @@ export function buildDayAUserPrompt(data: {
       prompt += `\n`;
     });
   } else {
-    prompt += `No screener data available.\n`;
+    prompt += `No screener data available — use DEX trades and flow intelligence data below instead.\n`;
   }
   prompt += `\n`;
 
@@ -96,7 +99,7 @@ export function buildDayAUserPrompt(data: {
       prompt += `- ${symbol} (${info.chain}): ${info.entities.size} unique entities, Total: ${formatUsd(info.totalUsd)}\n`;
     });
   } else {
-    prompt += `No DEX trade data available.\n`;
+    prompt += `No DEX trade data available — use screener and flow intelligence for content.\n`;
   }
   prompt += `\n`;
 
@@ -111,9 +114,20 @@ export function buildDayAUserPrompt(data: {
   }
   prompt += `\n`;
 
-  prompt += `Requirements:\n`;
+  // High Conviction Transfers
+  prompt += `## High Conviction Transfers\n`;
+  if (data.transfers.length > 0) {
+    data.transfers.slice(0, 20).forEach((t) => {
+      prompt += `- ${t.token_symbol}: ${formatUsd(t.transfer_value_usd)} from ${t.from_address_label || 'Unknown'} to ${t.to_address_label || 'Unknown'}\n`;
+    });
+  } else {
+    prompt += `No transfer data available.\n`;
+  }
+  prompt += `\n`;
+
+  prompt += `IMPORTANT: Use ALL available data sources above to populate both sections. If one data source is empty, rely on the others. Always fill out the full template with real data from the sources provided.\n`;
   prompt += `1. Top 5 Smart Money net inflows (exclude stables/BTC/ETH/SOL) - include MC and 24h volume\n`;
-  prompt += `2. Top 5 High Conviction tokens (3+ unique smart entities accumulating)\n`;
+  prompt += `2. Top 5 High Conviction tokens (3+ unique smart entities accumulating) - if fewer than 5 qualify, show however many do\n`;
   prompt += `Output raw HTML for Telegram.`;
 
   return prompt;

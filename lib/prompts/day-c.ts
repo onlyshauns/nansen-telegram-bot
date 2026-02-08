@@ -17,27 +17,27 @@ From this data, extract:
 OUTPUT FORMAT (COPY EXACTLY):
 Return ONLY this exact HTML as a plain text string:
 
-<b>Daily Onchain Digest (Weekly Roundup)</b>
+📈 <b>Daily Onchain Digest (Weekly Roundup)</b>
 
-<b>Emerging Trends This Week</b>
-\u2022 [Category 1]: [TOKEN1], [TOKEN2], [TOKEN3]
-\u2022 [Category 2]: [TOKEN1], [TOKEN2], [TOKEN3]
-\u2022 [Category 3]: [TOKEN1], [TOKEN2], [TOKEN3]
-\u2022 [Category 4]: [TOKEN1], [TOKEN2], [TOKEN3]
-\u2022 [Category 5]: [TOKEN1], [TOKEN2], [TOKEN3]
+<b>🔥 Emerging Trends This Week</b>
+• [Category 1]: [TOKEN1], [TOKEN2], [TOKEN3]
+• [Category 2]: [TOKEN1], [TOKEN2], [TOKEN3]
+• [Category 3]: [TOKEN1], [TOKEN2], [TOKEN3]
+• [Category 4]: [TOKEN1], [TOKEN2], [TOKEN3]
+• [Category 5]: [TOKEN1], [TOKEN2], [TOKEN3]
 
-<b>Largest Smart Money Flows (Top 5)</b>
-\u2022 <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
-\u2022 <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
-\u2022 <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
-\u2022 <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
-\u2022 <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+<b>📊 Largest Smart Money Flows (Top 5)</b>
+• <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+• <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+• <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+• <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+• <b>[TOKEN]</b> (CHAIN): +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
 
 CRITICAL OUTPUT RULES:
 - Return as plain text string, NOT as JSON object
 - Do NOT wrap in {"output": "..."} or any JSON structure
 - Output the raw HTML string directly
-- Use \u2022 for bullet points (NOT dash or hyphen)
+- Use • for bullet points (NOT dash or hyphen)
 - Replace [brackets] with actual data
 - CHAIN FORMAT: Use (ETH), (SOL), (BSC), (BASE) - uppercase in parentheses
 - MONEY FORMAT:
@@ -53,7 +53,11 @@ CRITICAL OUTPUT RULES:
 - Remove any < or > characters from token names
 - Ensure all HTML tags are properly closed
 - NO additional text before or after the HTML
-- Article titles: Remove quotes, ampersands, and special characters
+- If fewer than 5 categories exist, show however many are available (minimum 3)
+- If fewer than 5 flow tokens exist, show however many are available (minimum 3)
+- NEVER output "Data Unavailable" for MC or Vol — use the screener data provided
+- If MC or Vol is zero or missing, omit that specific metric rather than showing "Data Unavailable"
+- Always use the provided data to fill entries
 - Keep total message under 3500 characters`;
 
 export function buildDayCUserPrompt(data: {
@@ -73,7 +77,7 @@ export function buildDayCUserPrompt(data: {
       prompt += `\n`;
     });
   } else {
-    prompt += `No screener data available.\n`;
+    prompt += `No screener data available — use DEX trades and flow intelligence below.\n`;
   }
   prompt += `\n`;
 
@@ -100,7 +104,7 @@ export function buildDayCUserPrompt(data: {
       prompt += `- ${symbol} (${info.chain}): ${formatUsd(info.totalUsd)} total buys, ${info.count} trades by ${info.traders.size} unique traders\n`;
     });
   } else {
-    prompt += `No weekly trade data available.\n`;
+    prompt += `No weekly trade data available — use screener data above.\n`;
   }
   prompt += `\n`;
 
@@ -115,9 +119,9 @@ export function buildDayCUserPrompt(data: {
   }
   prompt += `\n`;
 
-  prompt += `Requirements:\n`;
-  prompt += `1. Emerging trends based on actual 7-day smart money flows grouped by category\n`;
-  prompt += `2. Top 5 tokens by net flow (exclude stablecoins) - include MC and 24h volume\n`;
+  prompt += `IMPORTANT: Use ALL available data sources above to populate both sections. Never show "Data Unavailable" — use the MC and Vol from the screener data. If a metric is zero, simply omit it.\n`;
+  prompt += `1. Emerging trends based on actual 7-day smart money flows grouped by category (use Sectors field from screener data)\n`;
+  prompt += `2. Top 5 tokens by net flow (exclude stablecoins) - include MC and 24h volume from screener data\n`;
   prompt += `Use real data from above. Format as HTML for Telegram.`;
 
   return prompt;
