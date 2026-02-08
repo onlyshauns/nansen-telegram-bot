@@ -8,7 +8,7 @@ import type {
   NansenPerpTrade,
   NansenTokenScreenerItem,
 } from './types';
-import { hoursAgo, daysAgo } from './formatting';
+import { hoursAgo } from './formatting';
 
 type Chain = 'ethereum' | 'solana' | 'base';
 
@@ -40,6 +40,49 @@ const KEY_TOKENS: Record<Chain, { address: string; symbol: string }[]> = {
   ],
 };
 
+/**
+ * Normalize DEX trade response: map trader_address_label -> trader_label
+ */
+function normalizeDEXTrade(trade: NansenDEXTrade): NansenDEXTrade {
+  return {
+    ...trade,
+    trader_label: trade.trader_address_label || trade.trader_label,
+  };
+}
+
+/**
+ * Normalize perp trade response: map API field names to our aliases
+ */
+function normalizePerpTrade(trade: NansenPerpTrade): NansenPerpTrade {
+  return {
+    ...trade,
+    timestamp: trade.block_timestamp || trade.timestamp,
+    token: trade.token_symbol || trade.token,
+    size: trade.token_amount ?? trade.size ?? 0,
+    trader: trade.trader_address_label || trade.trader || trade.trader_address || 'Unknown',
+    tx_hash: trade.transaction_hash || trade.tx_hash,
+  };
+}
+
+/**
+ * Normalize screener item: map API field names to our aliases
+ * API returns: token_symbol, price_change, volume, netflow, liquidity, buy_volume, sell_volume
+ * Our prompts use: symbol, price_change_percentage, volume_usd, net_flow_usd, liquidity_usd, buy_volume_usd, sell_volume_usd
+ */
+function normalizeScreenerItem(item: NansenTokenScreenerItem): NansenTokenScreenerItem {
+  return {
+    ...item,
+    symbol: item.token_symbol || item.symbol,
+    price_change_percentage: item.price_change ?? item.price_change_percentage ?? 0,
+    volume_usd: item.volume ?? item.volume_usd ?? 0,
+    net_flow_usd: item.netflow ?? item.net_flow_usd ?? 0,
+    liquidity_usd: item.liquidity ?? item.liquidity_usd ?? 0,
+    buy_volume_usd: item.buy_volume ?? item.buy_volume_usd ?? 0,
+    sell_volume_usd: item.sell_volume ?? item.sell_volume_usd ?? 0,
+    sectors: item.sectors || [],
+  };
+}
+
 export class NansenClient {
   private baseUrl = 'https://api.nansen.ai/api/v1';
   private betaUrl = 'https://api.nansen.ai/api/beta';
@@ -59,11 +102,13 @@ export class NansenClient {
 
   async getSmartMoneyDEXTrades(
     chains: Chain[] = ['ethereum', 'solana', 'base'],
-    options: { minUsd?: number; limit?: number; sinceHours?: number } = {}
+    options: { minUsd?: number; limit?: number } = {}
   ): Promise<NansenDEXTrade[]> {
-    const { minUsd = 1000, limit = 50, sinceHours = 24 } = options;
+    const { minUsd = 1000, limit = 50 } = options;
 
     try {
+      // NOTE: /smart-money/dex-trades does NOT accept a date field.
+      // It returns recent trades automatically.
       const response = await this.post<NansenDEXTradesResponse>(
         '/smart-money/dex-trades',
         {
@@ -71,15 +116,11 @@ export class NansenClient {
           filters: {
             trade_value_usd: { min: minUsd },
           },
-          date: {
-            from: hoursAgo(sinceHours).toISOString(),
-            to: new Date().toISOString(),
-          },
           pagination: { page: 1, per_page: limit },
         }
       );
 
-      return response.data || [];
+      return (response.data || []).map(normalizeDEXTrade);
     } catch (error) {
       console.error('[Nansen] getSmartMoneyDEXTrades error:', error);
       return [];
@@ -172,21 +213,13 @@ export class NansenClient {
     const { minUsd = 500, limit = 50 } = options;
 
     try {
+      // NOTE: /smart-money/dex-trades does NOT accept a date field.
       const response = await this.post<NansenDEXTradesResponse>(
         '/smart-money/dex-trades',
         {
           chains: chains.map((c) => CHAIN_MAP[c]),
           filters: {
             trade_value_usd: { min: minUsd },
-            smart_money_label: [
-              'Smart DEX Trader',
-              'Smart Money',
-              'Smart LP',
-            ],
-          },
-          date: {
-            from: hoursAgo(24).toISOString(),
-            to: new Date().toISOString(),
           },
           pagination: { page: 1, per_page: limit },
         }
@@ -218,16 +251,17 @@ export class NansenClient {
         'CRV',
       ]);
 
-      return (response.data || []).filter((trade) => {
-        const boughtSymbol = trade.token_bought_symbol?.toUpperCase();
-        const soldSymbol = trade.token_sold_symbol?.toUpperCase();
-        // Keep trades where the bought token is NOT a stablecoin or major blue-chip
-        return (
-          !stablecoins.has(boughtSymbol) &&
-          !majorTokens.has(boughtSymbol) &&
-          !stablecoins.has(soldSymbol)
-        );
-      });
+      return (response.data || [])
+        .map(normalizeDEXTrade)
+        .filter((trade) => {
+          const boughtSymbol = trade.token_bought_symbol?.toUpperCase();
+          const soldSymbol = trade.token_sold_symbol?.toUpperCase();
+          return (
+            !stablecoins.has(boughtSymbol) &&
+            !majorTokens.has(boughtSymbol) &&
+            !stablecoins.has(soldSymbol)
+          );
+        });
     } catch (error) {
       console.error('[Nansen] getMemecoinDEXTrades error:', error);
       return [];
@@ -240,17 +274,17 @@ export class NansenClient {
     const { limit = 25 } = options;
 
     try {
-      // Use the smart money perp trades endpoint
+      // order_by must be an array of { field, direction }
+      // field names must be snake_case: value_usd, block_timestamp, token_amount, price_usd
       const response = await this.post<{ data: NansenPerpTrade[] }>(
         '/smart-money/perp-trades',
         {
           pagination: { page: 1, per_page: limit },
-          order_by: 'valueUsd',
-          order_by_direction: 'desc',
+          order_by: [{ field: 'value_usd', direction: 'DESC' }],
         }
       );
 
-      return response.data || [];
+      return (response.data || []).map(normalizePerpTrade);
     } catch (error) {
       console.error('[Nansen] getSmartMoneyPerpTrades error:', error);
       return [];
@@ -276,31 +310,32 @@ export class NansenClient {
     } = options;
 
     try {
-      const body: Record<string, unknown> = {
-        parameters: {
-          chains,
-          timeframe,
-        },
-        filters: {
-          volume: { from: minVolume },
-          liquidity: { from: minLiquidity },
-        },
-        pagination: { page: 1, per_page: limit },
-        orderBy: 'netflow',
-        orderByDirection: 'desc',
+      // API requires flat structure: chains and timeframe at top level
+      // Filters use min/max (not from/to)
+      // order_by is an array of { field, direction }
+      const filters: Record<string, unknown> = {
+        volume: { min: minVolume },
+        liquidity: { min: minLiquidity },
       };
 
       if (onlySmartMoney) {
-        (body.filters as Record<string, unknown>).onlySmartTradersAndFunds =
-          true;
+        filters.only_smart_money = true;
       }
+
+      const body: Record<string, unknown> = {
+        chains,
+        timeframe,
+        filters,
+        pagination: { page: 1, per_page: limit },
+        order_by: [{ field: 'netflow', direction: 'DESC' }],
+      };
 
       const response = await this.post<{ data: NansenTokenScreenerItem[] }>(
         '/token-screener',
         body
       );
 
-      return response.data || [];
+      return (response.data || []).map(normalizeScreenerItem);
     } catch (error) {
       console.error('[Nansen] getTokenScreener error:', error);
       return [];
@@ -318,6 +353,8 @@ export class NansenClient {
     const { minUsd = 5000, limit = 100 } = options;
 
     try {
+      // NOTE: /smart-money/dex-trades does NOT accept a date field.
+      // We fetch the max number of recent trades and they cover recent activity.
       const response = await this.post<NansenDEXTradesResponse>(
         '/smart-money/dex-trades',
         {
@@ -325,15 +362,11 @@ export class NansenClient {
           filters: {
             trade_value_usd: { min: minUsd },
           },
-          date: {
-            from: daysAgo(7).toISOString(),
-            to: new Date().toISOString(),
-          },
           pagination: { page: 1, per_page: limit },
         }
       );
 
-      return response.data || [];
+      return (response.data || []).map(normalizeDEXTrade);
     } catch (error) {
       console.error('[Nansen] getWeeklyDEXTrades error:', error);
       return [];
@@ -414,6 +447,7 @@ export class NansenClient {
 
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       try {
+        console.log(`[Nansen] POST ${endpoint} body:`, JSON.stringify(body).slice(0, 500));
         const response = await fetch(`${baseUrl}${endpoint}`, {
           method: 'POST',
           headers: {
@@ -434,6 +468,7 @@ export class NansenClient {
 
         if (!response.ok) {
           const errorText = await response.text();
+          console.error(`[Nansen] API error ${response.status} for ${endpoint}: ${errorText}`);
           throw new Error(
             `Nansen API error ${response.status}: ${errorText}`
           );

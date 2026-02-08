@@ -17,7 +17,6 @@ export async function POST(): Promise<NextResponse<GenerateResponse>> {
       client.getSmartMoneyDEXTrades(['ethereum', 'solana', 'base'], {
         minUsd: 1000,
         limit: 50,
-        sinceHours: 24,
       }),
       client.getHighConvictionTransfers(['ethereum', 'solana', 'base'], {
         minUsd: 100000,

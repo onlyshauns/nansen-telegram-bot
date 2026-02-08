@@ -8,16 +8,21 @@ export interface NansenDEXTrade {
   transaction_hash: string;
   block_timestamp: string;
   trader_address: string;
-  trader_label?: string;
+  trader_address_label?: string;
+  trader_label?: string; // alias — we map trader_address_label to this
   smart_money_label?: string;
   token_bought_address: string;
   token_bought_symbol: string;
   token_bought_name?: string;
-  token_bought_amount: string;
+  token_bought_amount: number;
+  token_bought_age_days?: number;
+  token_bought_market_cap?: number;
   token_sold_address: string;
   token_sold_symbol: string;
   token_sold_name?: string;
-  token_sold_amount: string;
+  token_sold_amount: number;
+  token_sold_age_days?: number;
+  token_sold_market_cap?: number;
   trade_value_usd: number;
   dex_name?: string;
 }
@@ -83,31 +88,53 @@ export interface NansenFlowIntelligenceResponse {
 }
 
 export interface NansenPerpTrade {
-  timestamp: string;
+  // API response fields
+  block_timestamp: string;
+  trader_address: string;
+  trader_address_label?: string;
+  token_symbol: string;
   side: string;
   action: string;
-  token: string;
-  size: number;
+  token_amount: number;
   price_usd: number;
   value_usd: number;
+  type?: string;
+  transaction_hash: string;
+  // Mapped aliases used by prompts (set after fetch)
+  timestamp: string;
+  token: string;
+  size: number;
   trader: string;
   tx_hash: string;
 }
 
 export interface NansenTokenScreenerItem {
   token_address: string;
+  token_symbol: string;
+  // Mapped aliases used by prompts (set in nansen.ts after fetch)
   symbol: string;
   chain: string;
   price_usd: number;
-  price_change_percentage: number;
+  price_change: number;
+  price_change_percentage: number; // alias mapped from price_change
   market_cap_usd: number;
-  volume_usd: number;
-  buy_volume_usd: number;
-  sell_volume_usd: number;
-  net_flow_usd: number;
-  liquidity_usd: number;
+  volume: number;
+  volume_usd: number; // alias mapped from volume
+  buy_volume: number;
+  buy_volume_usd: number; // alias mapped from buy_volume
+  sell_volume: number;
+  sell_volume_usd: number; // alias mapped from sell_volume
+  netflow: number;
+  net_flow_usd: number; // alias mapped from netflow
+  liquidity: number;
+  liquidity_usd: number; // alias mapped from liquidity
+  fdv: number;
+  fdv_mc_ratio: number;
+  inflow_fdv_ratio: number;
+  outflow_fdv_ratio: number;
   token_age_days: number;
   sectors: string[];
+  nof_traders?: number;
 }
 
 // ============================================
