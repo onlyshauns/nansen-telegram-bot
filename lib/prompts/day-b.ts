@@ -10,7 +10,8 @@ const EXCLUDED_SYMBOLS = new Set([
   'BNB', 'WBNB',
 ]);
 
-function isExcluded(symbol: string): boolean {
+function isExcluded(symbol: string | undefined | null): boolean {
+  if (!symbol) return true; // Exclude undefined/null symbols
   const upper = symbol.toUpperCase();
   if (EXCLUDED_SYMBOLS.has(upper)) return true;
   if (upper.startsWith('W') && EXCLUDED_SYMBOLS.has(upper.slice(1))) return true;
@@ -87,9 +88,9 @@ export function buildDayBUserPrompt(data: {
   prompt += `## Token Screener Data (Smart Money Small-Cap/Memecoin Flows)\n`;
   if (filteredScreener.length > 0) {
     filteredScreener.forEach((token) => {
-      const chain = token.chain.toUpperCase().replace('ETHEREUM', 'ETH').replace('SOLANA', 'SOL');
-      prompt += `- ${token.symbol} (${chain}): Net Flow ${formatUsd(token.net_flow_usd)}, MC: ${formatUsd(token.market_cap_usd)}, Vol: ${formatUsd(token.volume_usd)}, Price: ${token.price_change_percentage.toFixed(1)}%`;
-      if (token.sectors.length > 0) prompt += `, Sectors: ${token.sectors.join(', ')}`;
+      const chain = (token.chain || 'unknown').toUpperCase().replace('ETHEREUM', 'ETH').replace('SOLANA', 'SOL');
+      prompt += `- ${token.symbol} (${chain}): Net Flow ${formatUsd(token.net_flow_usd)}, MC: ${formatUsd(token.market_cap_usd)}, Vol: ${formatUsd(token.volume_usd)}, Price: ${(token.price_change_percentage ?? 0).toFixed(1)}%`;
+      if (token.sectors?.length > 0) prompt += `, Sectors: ${token.sectors.join(', ')}`;
       prompt += `\n`;
     });
   } else {
@@ -106,7 +107,7 @@ export function buildDayBUserPrompt(data: {
     filteredTrades.forEach((trade) => {
       const symbol = trade.token_bought_symbol;
       if (!tokenAgg[symbol]) {
-        tokenAgg[symbol] = { totalUsd: 0, chain: trade.chain, count: 0 };
+        tokenAgg[symbol] = { totalUsd: 0, chain: trade.chain || 'unknown', count: 0 };
       }
       tokenAgg[symbol].totalUsd += trade.trade_value_usd;
       tokenAgg[symbol].count++;

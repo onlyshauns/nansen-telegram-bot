@@ -10,7 +10,8 @@ const EXCLUDED_SYMBOLS = new Set([
   'BNB', 'WBNB',
 ]);
 
-function isExcluded(symbol: string): boolean {
+function isExcluded(symbol: string | undefined | null): boolean {
+  if (!symbol) return true; // Exclude undefined/null symbols
   const upper = symbol.toUpperCase();
   if (EXCLUDED_SYMBOLS.has(upper)) return true;
   if (upper.startsWith('W') && EXCLUDED_SYMBOLS.has(upper.slice(1))) return true;
@@ -103,7 +104,7 @@ export function buildDayCUserPrompt(data: {
     // Group tokens by sector for better trend identification
     const sectorMap: Record<string, typeof filteredScreener> = {};
     filteredScreener.forEach((token) => {
-      if (token.sectors.length > 0) {
+      if (token.sectors?.length > 0) {
         token.sectors.forEach((sector) => {
           if (!sectorMap[sector]) sectorMap[sector] = [];
           sectorMap[sector].push(token);
@@ -116,9 +117,9 @@ export function buildDayCUserPrompt(data: {
 
     // First show individual tokens sorted by net flow
     filteredScreener.forEach((token) => {
-      const chain = token.chain.toUpperCase().replace('ETHEREUM', 'ETH').replace('SOLANA', 'SOL');
-      prompt += `- ${token.symbol} (${chain}): Net Flow ${formatUsd(token.net_flow_usd)}, MC: ${formatUsd(token.market_cap_usd)}, Vol: ${formatUsd(token.volume_usd)}, Price Change: ${token.price_change_percentage.toFixed(1)}%`;
-      if (token.sectors.length > 0) prompt += `, Sectors: ${token.sectors.join(', ')}`;
+      const chain = (token.chain || 'unknown').toUpperCase().replace('ETHEREUM', 'ETH').replace('SOLANA', 'SOL');
+      prompt += `- ${token.symbol} (${chain}): Net Flow ${formatUsd(token.net_flow_usd)}, MC: ${formatUsd(token.market_cap_usd)}, Vol: ${formatUsd(token.volume_usd)}, Price Change: ${(token.price_change_percentage ?? 0).toFixed(1)}%`;
+      if (token.sectors?.length > 0) prompt += `, Sectors: ${token.sectors.join(', ')}`;
       prompt += `\n`;
     });
 
@@ -153,7 +154,7 @@ export function buildDayCUserPrompt(data: {
     filteredTrades.forEach((trade) => {
       const symbol = trade.token_bought_symbol;
       if (!tokenBuys[symbol]) {
-        tokenBuys[symbol] = { count: 0, totalUsd: 0, traders: new Set(), chain: trade.chain };
+        tokenBuys[symbol] = { count: 0, totalUsd: 0, traders: new Set(), chain: trade.chain || 'unknown' };
       }
       tokenBuys[symbol].count++;
       tokenBuys[symbol].totalUsd += trade.trade_value_usd;
@@ -181,7 +182,7 @@ export function buildDayCUserPrompt(data: {
       .slice(0, 15)
       .forEach((trade) => {
         const traderName = trade.trader_label || truncateAddress(trade.trader_address);
-        const chain = trade.chain.toUpperCase().replace('ETHEREUM', 'ETH').replace('SOLANA', 'SOL');
+        const chain = (trade.chain || 'unknown').toUpperCase().replace('ETHEREUM', 'ETH').replace('SOLANA', 'SOL');
         prompt += `- ${traderName} bought ${trade.token_bought_symbol} (${chain}): ${formatUsd(trade.trade_value_usd)} (sold ${trade.token_sold_symbol})\n`;
       });
   } else {
