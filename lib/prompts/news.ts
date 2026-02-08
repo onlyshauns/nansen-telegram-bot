@@ -13,10 +13,10 @@ SELECTION CRITERIA (in priority order):
 5. Significant market structure events (liquidations, funding rate extremes, exchange issues)
 
 OUTPUT FORMAT:
-<b>Nansen Daily Briefing</b>
+📰 <b>Daily Onchain News</b>
 
 <b>[Headline]</b>
-[1 sentence summary — be specific with dollar amounts, percentages, entity names.] (<a href="[URL]">[Source Name]</a>)
+[1 sentence summary — be specific with dollar amounts, percentages, entity names.] <a href="[URL]">Read more</a>
 
 [Repeat for exactly 3 items]
 
@@ -24,7 +24,7 @@ RULES:
 - EXACTLY 3 stories, no more, no less
 - Each summary is exactly 1 sentence — concise and factual
 - Each story MUST be from a different source (the source is shown in the data)
-- Include the source name in the link text, e.g. (<a href="url">CoinDesk</a>)
+- Link text is always "Read more"
 - Prefer stories with higher coverage counts
 - Output raw HTML only — no text before or after the template
 - Do NOT include generic market commentary or filler`;
