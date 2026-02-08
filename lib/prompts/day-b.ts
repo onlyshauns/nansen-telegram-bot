@@ -1,18 +1,36 @@
 import type { NansenDEXTrade, NansenPerpTrade, NansenTokenScreenerItem } from '../types';
 import { formatUsd } from '../formatting';
 
+// Exclude stablecoins and major L1s — we want small/mid-cap tokens and memecoins
+const EXCLUDED_SYMBOLS = new Set([
+  'BTC', 'WBTC', 'BTCB', 'TBTC',
+  'ETH', 'WETH', 'STETH', 'RETH', 'CBETH', 'WSTETH', 'METH', 'EETH', 'WEETH',
+  'SOL', 'WSOL', 'MSOL', 'JITOSOL', 'BSOL', 'DZSOL',
+  'USDC', 'USDT', 'DAI', 'BUSD', 'TUSD', 'FRAX', 'USDP', 'GUSD', 'PYUSD', 'USDS', 'USDE', 'FDUSD', 'CRVUSD', 'GHO',
+  'BNB', 'WBNB',
+]);
+
+function isExcluded(symbol: string): boolean {
+  const upper = symbol.toUpperCase();
+  if (EXCLUDED_SYMBOLS.has(upper)) return true;
+  if (upper.startsWith('W') && EXCLUDED_SYMBOLS.has(upper.slice(1))) return true;
+  if (upper.endsWith('ETH') && upper !== 'ETH' && upper.length > 3) return true;
+  if (upper.endsWith('SOL') && upper !== 'SOL' && upper.length > 3) return true;
+  return false;
+}
+
 export const DAY_B_SYSTEM_PROMPT = `You are a marketing content creator for web platforms specializing in crypto/DeFi market analysis. Your ONLY job is to output HTML formatted text for Telegram.
 
-TASK: Analyze smart money memecoin flows and Hyperliquid perpetual positioning in the past 24 hours.
+TASK: Analyze smart money memecoin and small-cap token flows plus Hyperliquid perpetual positioning in the past 24 hours.
 
 You will be given pre-fetched data including:
-- Smart money memecoin DEX trades
+- Smart money DEX trades on small/mid-cap tokens (stablecoins and majors already filtered out)
 - Token screener data with market caps, volumes, and net flows
-- Hyperliquid smart money perpetual trades
+- Hyperliquid smart money perpetual trades sorted by position size
 
 From this data, extract:
-1. TOP 5 memecoins by smart money net flow volume
-2. TOP 5 Hyperliquid perpetual positions by size
+1. TOP 5 tokens by smart money flow volume — use whatever tokens appear in the data (these are the LATEST flows, not a fixed list of memecoins)
+2. TOP 5 Hyperliquid perpetual positions sorted by HIGHEST total position size
 
 OUTPUT FORMAT (COPY EXACTLY):
 Return ONLY this exact HTML as a plain text string:
@@ -38,7 +56,7 @@ CRITICAL OUTPUT RULES:
 - Do NOT wrap in {"output": "..."} or any JSON structure
 - Output the raw HTML string directly
 - Use • for bullet points (NOT - or *)
-- Replace [brackets] with actual data
+- Replace [brackets] with actual data from the provided dataset
 - CHAIN FORMAT: Use (ETH), (SOL), (BSC), (BASE) - uppercase in parentheses
 - MONEY FORMAT:
   * Under $1K: $999
@@ -48,28 +66,27 @@ CRITICAL OUTPUT RULES:
 - Format market caps and volumes consistently with money format above
 - Use <b> tags for token symbols in Smart Money Memecoin Flows section
 - NO "net inflow" text - just the amount
-- Hyperliquid section sorted by position size (descending)
+- Hyperliquid section MUST be sorted by position size (descending) — largest positions first
 - Ensure all HTML tags are properly closed
 - NO additional text before or after the HTML
-- Focus on actual memecoins (PEPE, WIF, BONK, DOGE, SHIB, FLOKI, etc.)
-- Exclude major cryptocurrencies and wrapped tokens
-- If fewer than 5 memecoins exist in data, show however many are available (minimum 3)
-- If fewer than 5 perp positions exist, show however many are available (minimum 3)
-- NEVER output "No significant activity detected" — always use available data to populate entries
-- If memecoin data is sparse, include any small-cap tokens with smart money activity
-- If perp data is sparse, show the top positions regardless of size`;
+- Use the ACTUAL tokens from the data — do NOT substitute with well-known memecoins if they are not in the data
+- If fewer than 5 entries exist, show however many are available (minimum 3)
+- NEVER fabricate data — only use values from the provided dataset
+- Stablecoins and major L1 tokens have already been filtered out`;
 
 export function buildDayBUserPrompt(data: {
   memecoinTrades: NansenDEXTrade[];
   perpTrades: NansenPerpTrade[];
   screenerData: NansenTokenScreenerItem[];
 }): string {
-  let prompt = `Analyze the past 24 hours and generate a smart money memecoin & Hyperliquid positioning digest.\n\nHere is the pre-fetched data:\n\n`;
+  let prompt = `Analyze the past 24 hours and generate a smart money small-cap/memecoin & Hyperliquid positioning digest.\n\nHere is the pre-fetched data:\n\n`;
 
-  // Token Screener Data for memecoins
-  prompt += `## Token Screener Data (Smart Money Memecoin Flows)\n`;
-  if (data.screenerData.length > 0) {
-    data.screenerData.forEach((token) => {
+  // Pre-filter screener data
+  const filteredScreener = data.screenerData.filter((t) => !isExcluded(t.symbol));
+
+  prompt += `## Token Screener Data (Smart Money Small-Cap/Memecoin Flows)\n`;
+  if (filteredScreener.length > 0) {
+    filteredScreener.forEach((token) => {
       const chain = token.chain.toUpperCase().replace('ETHEREUM', 'ETH').replace('SOLANA', 'SOL');
       prompt += `- ${token.symbol} (${chain}): Net Flow ${formatUsd(token.net_flow_usd)}, MC: ${formatUsd(token.market_cap_usd)}, Vol: ${formatUsd(token.volume_usd)}, Price: ${token.price_change_percentage.toFixed(1)}%`;
       if (token.sectors.length > 0) prompt += `, Sectors: ${token.sectors.join(', ')}`;
@@ -80,12 +97,13 @@ export function buildDayBUserPrompt(data: {
   }
   prompt += `\n`;
 
-  // Memecoin Smart Money Trades
-  prompt += `## Smart Money Memecoin DEX Trades (Last 24h)\n`;
-  if (data.memecoinTrades.length > 0) {
-    // Aggregate by token
+  // Pre-filter memecoin trades
+  const filteredTrades = data.memecoinTrades.filter((t) => !isExcluded(t.token_bought_symbol));
+
+  prompt += `## Smart Money DEX Trades - Small-Cap/Memecoin (Last 24h)\n`;
+  if (filteredTrades.length > 0) {
     const tokenAgg: Record<string, { totalUsd: number; chain: string; count: number }> = {};
-    data.memecoinTrades.forEach((trade) => {
+    filteredTrades.forEach((trade) => {
       const symbol = trade.token_bought_symbol;
       if (!tokenAgg[symbol]) {
         tokenAgg[symbol] = { totalUsd: 0, chain: trade.chain, count: 0 };
@@ -101,14 +119,13 @@ export function buildDayBUserPrompt(data: {
         prompt += `- ${symbol} (${info.chain}): ${formatUsd(info.totalUsd)} total, ${info.count} trades\n`;
       });
   } else {
-    prompt += `No memecoin trades detected — use screener data above for memecoin flow entries.\n`;
+    prompt += `No DEX trades detected — use screener data above for memecoin flow entries.\n`;
   }
   prompt += `\n`;
 
-  // Hyperliquid Perp Trades
-  prompt += `## Hyperliquid Smart Money Perp Trades\n`;
+  // Hyperliquid Perp Trades — aggregate by token, sorted by total position size
+  prompt += `## Hyperliquid Smart Money Perp Trades (sorted by position size, largest first)\n`;
   if (data.perpTrades.length > 0) {
-    // Aggregate by token to show positioning
     const perpAgg: Record<string, { longs: number; shorts: number; totalSize: number }> = {};
     data.perpTrades.forEach((trade) => {
       if (!perpAgg[trade.token]) {
@@ -122,27 +139,31 @@ export function buildDayBUserPrompt(data: {
       perpAgg[trade.token].totalSize += trade.value_usd;
     });
 
+    // Sort by total position size descending
     Object.entries(perpAgg)
       .sort(([, a], [, b]) => b.totalSize - a.totalSize)
       .slice(0, 10)
       .forEach(([token, info]) => {
         const total = info.longs + info.shorts;
         const longPct = total > 0 ? ((info.longs / total) * 100).toFixed(0) : '0';
-        prompt += `- ${token}: ${longPct}% long, Position: ${formatUsd(info.totalSize)}, Longs: ${formatUsd(info.longs)}, Shorts: ${formatUsd(info.shorts)}\n`;
+        prompt += `- ${token}: ${longPct}% long, Total Position: ${formatUsd(info.totalSize)}, Longs: ${formatUsd(info.longs)}, Shorts: ${formatUsd(info.shorts)}\n`;
       });
 
-    prompt += `\nIndividual trades:\n`;
-    data.perpTrades.slice(0, 15).forEach((trade) => {
-      prompt += `- ${trade.trader} ${trade.action} ${trade.side} ${trade.token}: ${formatUsd(trade.value_usd)} at ${formatUsd(trade.price_usd)}\n`;
-    });
+    prompt += `\nIndividual trades (largest first):\n`;
+    data.perpTrades
+      .sort((a, b) => b.value_usd - a.value_usd)
+      .slice(0, 15)
+      .forEach((trade) => {
+        prompt += `- ${trade.trader} ${trade.action} ${trade.side} ${trade.token}: ${formatUsd(trade.value_usd)} at ${formatUsd(trade.price_usd)}\n`;
+      });
   } else {
-    prompt += `No Hyperliquid perp trades detected — use any available data to populate the perps section.\n`;
+    prompt += `No Hyperliquid perp trades detected.\n`;
   }
   prompt += `\n`;
 
-  prompt += `IMPORTANT: Use ALL available data sources above to populate both sections. Always fill the template with real data. Never say "no activity detected".\n`;
-  prompt += `1. Top 5 memecoins by smart money net flows - include MC and 24h volume\n`;
-  prompt += `2. Top 5 Hyperliquid perpetual positioning by position size\n`;
+  prompt += `IMPORTANT: Use the ACTUAL tokens from the data above. Do NOT substitute with well-known tokens that are not in the data. Sort Hyperliquid perps by LARGEST position size first.\n`;
+  prompt += `1. Top 5 tokens by smart money net flows - include MC and 24h volume\n`;
+  prompt += `2. Top 5 Hyperliquid perpetual positions sorted by HIGHEST total position size\n`;
   prompt += `Format as Telegram HTML digest.`;
 
   return prompt;
