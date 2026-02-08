@@ -1,71 +1,64 @@
 import type { NewsArticle } from '../types';
 
-export const NEWS_SYSTEM_PROMPT = `You are a cryptocurrency news formatter specializing in creating clean, professional daily digests for Telegram using HTML formatting.
+export const NEWS_SYSTEM_PROMPT = `You are a cryptocurrency news editor creating a tight, high-signal daily briefing for Telegram using HTML formatting.
 
 YOUR TASK:
-1. First, look for HIGH-IMPACT news (hacks, regulatory actions, major adoptions)
-2. If less than 5 high-impact items exist, include MEDIUM-IMPACT news (price movements, DeFi updates, market analysis)
-3. Always output 5-7 news items, even if some are general market updates
+Select the 3 MOST IMPORTANT stories from the ranked headlines provided. Stories are pre-ranked by how many major outlets covered them — higher coverage count = bigger headline.
 
-PRIORITY ORDER:
+SELECTION CRITERIA (in priority order):
 1. Security breaches/hacks with specific losses
-2. SEC/regulatory enforcement actions
-3. Major institutional adoption or ETF news
-4. Protocol launches or major upgrades
-5. Funding rounds over $50M
-6. Significant price movements (20%+ for major coins)
-7. DeFi protocol updates or governance news
-8. Market analysis and trend reports
+2. SEC/regulatory enforcement or policy changes
+3. Major institutional adoption, ETF approvals, or sovereign fund moves
+4. Protocol launches, major upgrades, or chain milestones
+5. Significant market structure events (liquidations, funding rate extremes, exchange issues)
 
 OUTPUT FORMAT:
-<b>Daily Onchain News</b>
+<b>Nansen Daily Briefing</b>
 
 <b>[Headline]</b>
-[1-2 sentence summary]
+[2-3 sentence summary with specific numbers, names, and impact. Be precise — include dollar amounts, percentages, entity names.]
 <a href="[URL]">Read more</a>
 
-[Repeat for 5-7 items]
+[Repeat for exactly 3 items]
 
-IMPORTANT RULES:
-- ALWAYS produce output, even with generic news
-- If URLs are homepage links, still use them but note it's a developing story
-- Mix high-impact with market updates to reach 5-7 items
-- Do NOT reject content - work with what's available
-- If article is older but relevant, include it
-- Output raw HTML only
-- Focus on reputable sources: CoinDesk, Cointelegraph, The Block, Decrypt
-- Ensure each item has a working URL
-- NO additional text before or after the HTML template`;
+RULES:
+- EXACTLY 3 stories, no more, no less
+- Each summary should be 2-3 sentences with concrete details
+- Prefer stories with higher coverage counts (covered by multiple outlets = bigger news)
+- Output raw HTML only — no text before or after the template
+- Use the provided URL for each story
+- Do NOT include generic market commentary or filler`;
+
+interface RankedHeadline extends NewsArticle {
+  coverageCount: number;
+  relatedSources: string[];
+}
 
 export function buildNewsUserPrompt(data: {
-  articles: NewsArticle[];
+  rankedHeadlines: RankedHeadline[];
 }): string {
-  let prompt = `Format the following news data into a Telegram digest. If high-impact news is limited, include market updates and analysis to reach 5-7 total items. Work with available content - do not reject.\n\n`;
+  let prompt = `Select the 3 biggest headlines from the ranked stories below. Stories with higher coverage counts are bigger news (covered by more outlets).\n\n`;
 
-  if (data.articles.length === 0) {
+  if (data.rankedHeadlines.length === 0) {
     prompt += `No recent articles found. Please generate a brief note explaining that news sources are temporarily unavailable.\n`;
     return prompt;
   }
 
-  prompt += `News Data:\n\n`;
-  data.articles.forEach((article, i) => {
-    prompt += `${i + 1}. [${article.source}] ${article.title}\n`;
-    if (article.description) {
-      const desc = article.description.length > 300
-        ? article.description.slice(0, 300) + '...'
-        : article.description;
+  prompt += `Ranked Headlines (sorted by importance):\n\n`;
+  data.rankedHeadlines.slice(0, 15).forEach((headline, i) => {
+    prompt += `${i + 1}. [Coverage: ${headline.coverageCount} source${headline.coverageCount > 1 ? 's' : ''}: ${headline.relatedSources.join(', ')}]\n`;
+    prompt += `   ${headline.title}\n`;
+    if (headline.description) {
+      const desc = headline.description.length > 400
+        ? headline.description.slice(0, 400) + '...'
+        : headline.description;
       prompt += `   ${desc}\n`;
     }
-    prompt += `   URL: ${article.url}\n`;
-    prompt += `   Published: ${article.timestamp}\n\n`;
+    prompt += `   URL: ${headline.url}\n`;
+    prompt += `   Published: ${headline.timestamp}\n\n`;
   });
 
-  prompt += `\nRequirements:\n`;
-  prompt += `1. Prioritize high-impact news if available\n`;
-  prompt += `2. Fill remaining slots with market updates/analysis\n`;
-  prompt += `3. Always output 5-7 items total\n`;
-  prompt += `4. Use any available URLs, even if they're homepage links\n`;
-  prompt += `5. Create a complete digest regardless of content quality`;
+  prompt += `\nPick the 3 most significant stories. Prefer multi-source stories over single-source ones.`;
 
   return prompt;
 }

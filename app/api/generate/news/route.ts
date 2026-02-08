@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchLatestNews } from '@/lib/news';
+import { fetchLatestNews, rankHeadlines } from '@/lib/news';
 import { generateContent } from '@/lib/claude';
 import { sendTelegramMessage } from '@/lib/telegram';
 import { getRandomArticles, formatArticleFooter } from '@/lib/articles';
@@ -10,13 +10,14 @@ export const maxDuration = 60;
 
 export async function POST(): Promise<NextResponse<GenerateResponse>> {
   try {
-    // Fetch latest news from RSS feeds
-    const articles = await fetchLatestNews(24, 30);
+    // Fetch latest news from RSS feeds and rank by headline importance
+    const articles = await fetchLatestNews(24, 50);
+    const rankedHeadlines = rankHeadlines(articles);
 
-    console.log(`[News] Fetched: ${articles.length} news articles`);
+    console.log(`[News] Fetched: ${articles.length} articles, ${rankedHeadlines.length} unique stories, top story covered by ${rankedHeadlines[0]?.coverageCount || 0} sources`);
 
     // Build prompt and generate content
-    const userPrompt = buildNewsUserPrompt({ articles });
+    const userPrompt = buildNewsUserPrompt({ rankedHeadlines });
 
     const generatedContent = await generateContent({
       systemPrompt: NEWS_SYSTEM_PROMPT,
