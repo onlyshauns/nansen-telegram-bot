@@ -1,44 +1,71 @@
 import type { NewsArticle } from '../types';
 
-// TODO: Replace with your actual system prompt
-export const NEWS_SYSTEM_PROMPT = `You are a professional crypto news analyst writing a daily news digest for the Nansen community Telegram channel.
+export const NEWS_SYSTEM_PROMPT = `You are a cryptocurrency news formatter specializing in creating clean, professional daily digests for Telegram using HTML formatting.
 
-Your task is to summarize the most important crypto and onchain news from the past 24 hours into a concise, well-structured Telegram post.
+YOUR TASK:
+1. First, look for HIGH-IMPACT news (hacks, regulatory actions, major adoptions)
+2. If less than 5 high-impact items exist, include MEDIUM-IMPACT news (price movements, DeFi updates, market analysis)
+3. Always output 5-7 news items, even if some are general market updates
 
-Guidelines:
-- Use plain text formatting (no HTML tags). Use emoji sparingly for visual structure.
-- Keep the post between 1500-2500 characters
-- Lead with the most impactful story
-- Group related stories together
-- Focus on news relevant to onchain activity, DeFi, token movements, and market-moving events
-- Include brief context for why each story matters
-- End with a brief market sentiment note
-- Do not include URLs in the post body (they will be available in the source articles)
-- Be factual and balanced`;
+PRIORITY ORDER:
+1. Security breaches/hacks with specific losses
+2. SEC/regulatory enforcement actions
+3. Major institutional adoption or ETF news
+4. Protocol launches or major upgrades
+5. Funding rounds over $50M
+6. Significant price movements (20%+ for major coins)
+7. DeFi protocol updates or governance news
+8. Market analysis and trend reports
+
+OUTPUT FORMAT:
+<b>Daily Onchain News</b>
+
+<b>[Headline]</b>
+[1-2 sentence summary]
+<a href="[URL]">Read more</a>
+
+[Repeat for 5-7 items]
+
+IMPORTANT RULES:
+- ALWAYS produce output, even with generic news
+- If URLs are homepage links, still use them but note it's a developing story
+- Mix high-impact with market updates to reach 5-7 items
+- Do NOT reject content - work with what's available
+- If article is older but relevant, include it
+- Output raw HTML only
+- Focus on reputable sources: CoinDesk, Cointelegraph, The Block, Decrypt
+- Ensure each item has a working URL
+- NO additional text before or after the HTML template`;
 
 export function buildNewsUserPrompt(data: {
   articles: NewsArticle[];
 }): string {
-  let prompt = `Here are the latest crypto news articles from the past 24 hours. Please create a daily news digest Telegram post.\n\n`;
+  let prompt = `Format the following news data into a Telegram digest. If high-impact news is limited, include market updates and analysis to reach 5-7 total items. Work with available content - do not reject.\n\n`;
 
   if (data.articles.length === 0) {
     prompt += `No recent articles found. Please generate a brief note explaining that news sources are temporarily unavailable.\n`;
     return prompt;
   }
 
+  prompt += `News Data:\n\n`;
   data.articles.forEach((article, i) => {
     prompt += `${i + 1}. [${article.source}] ${article.title}\n`;
     if (article.description) {
-      // Truncate long descriptions
-      const desc = article.description.length > 200
-        ? article.description.slice(0, 200) + '...'
+      const desc = article.description.length > 300
+        ? article.description.slice(0, 300) + '...'
         : article.description;
       prompt += `   ${desc}\n`;
     }
+    prompt += `   URL: ${article.url}\n`;
     prompt += `   Published: ${article.timestamp}\n\n`;
   });
 
-  prompt += `\nPlease create a formatted daily news digest Telegram post summarizing the most important stories above.`;
+  prompt += `\nRequirements:\n`;
+  prompt += `1. Prioritize high-impact news if available\n`;
+  prompt += `2. Fill remaining slots with market updates/analysis\n`;
+  prompt += `3. Always output 5-7 items total\n`;
+  prompt += `4. Use any available URLs, even if they're homepage links\n`;
+  prompt += `5. Create a complete digest regardless of content quality`;
 
   return prompt;
 }

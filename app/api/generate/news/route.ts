@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { fetchLatestNews } from '@/lib/news';
 import { generateContent } from '@/lib/claude';
 import { sendTelegramMessage } from '@/lib/telegram';
-import { getRandomArticle, formatArticleFooter } from '@/lib/articles';
+import { getRandomArticles, formatArticleFooter } from '@/lib/articles';
 import { NEWS_SYSTEM_PROMPT, buildNewsUserPrompt } from '@/lib/prompts/news';
 import type { GenerateResponse } from '@/lib/types';
 
@@ -23,9 +23,9 @@ export async function POST(): Promise<NextResponse<GenerateResponse>> {
       userPrompt,
     });
 
-    // Append academy article
-    const article = getRandomArticle('news');
-    const fullContent = generatedContent + formatArticleFooter(article);
+    // Append academy articles footer
+    const academyArticles = getRandomArticles('news', 3);
+    const fullContent = generatedContent + formatArticleFooter(academyArticles);
 
     // Send to Telegram
     const botToken = process.env.TELEGRAM_BOT_TOKEN!;
@@ -42,7 +42,7 @@ export async function POST(): Promise<NextResponse<GenerateResponse>> {
       result: {
         content: fullContent,
         telegramMessageIds: messageIds,
-        articleAppended: article,
+        articleAppended: academyArticles[0],
         generatedAt: new Date().toISOString(),
       },
     });

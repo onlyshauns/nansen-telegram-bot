@@ -27,7 +27,7 @@ export const ACADEMY_ARTICLES: AcademyArticle[] = [
   { title: 'About Nansen Trading', url: 'https://academy.nansen.ai/en/articles/0162796-about-nansen-trading', category: 'trading' },
   { title: 'Get Started with Nansen Trading', url: 'https://academy.nansen.ai/en/articles/9215495-get-started-with-nansen-trading', category: 'trading' },
   { title: 'Crypto Trading for Beginners', url: 'https://academy.nansen.ai/en/articles/6851806-crypto-trading-for-beginners', category: 'trading' },
-  { title: 'Buying/Selling Crypto for Beginners', url: 'https://academy.nansen.ai/en/articles/6857553-buyingselling-crypto-for-beginners', category: 'trading' },
+  { title: 'Buying and Selling Crypto for Beginners', url: 'https://academy.nansen.ai/en/articles/6857553-buyingselling-crypto-for-beginners', category: 'trading' },
 
   // ===== Playbook (Token God Mode) =====
   { title: 'Token God Mode 101', url: 'https://academy.nansen.ai/en/articles/3874203-token-god-mode-101', category: 'playbook' },
@@ -35,7 +35,7 @@ export const ACADEMY_ARTICLES: AcademyArticle[] = [
   { title: 'How to Use Token God Mode to Compare Holder Distribution', url: 'https://academy.nansen.ai/en/articles/0479852-how-to-use-token-god-mode-to-compare-holder-distribution', category: 'playbook' },
   { title: 'Detecting Accumulation Patterns in Token God Mode', url: 'https://academy.nansen.ai/en/articles/1129448-detecting-accumulation-patterns-in-token-god-mode', category: 'playbook' },
   { title: 'Using Balance Divergences in Token God Mode', url: 'https://academy.nansen.ai/en/articles/7583890-using-balance-divergences-in-token-god-mode', category: 'playbook' },
-  { title: "Using Token God Mode's Top Holders Tab to Spot Exit", url: 'https://academy.nansen.ai/en/articles/9054931-using-token-god-modes-top-holders-tab-to-spot-exit', category: 'playbook' },
+  { title: 'Using Token God Mode Top Holders Tab to Spot Exit', url: 'https://academy.nansen.ai/en/articles/9054931-using-token-god-modes-top-holders-tab-to-spot-exit', category: 'playbook' },
 
   // ===== Playbook (Other Features) =====
   { title: 'Using AI Signals to Filter High-Signal Tokens', url: 'https://academy.nansen.ai/en/articles/0412066-using-ai-signals-to-filter-high-signal-tokens', category: 'playbook' },
@@ -54,15 +54,15 @@ export const ACADEMY_ARTICLES: AcademyArticle[] = [
 
   // ===== 101 Series =====
   { title: 'About Nansen', url: 'https://academy.nansen.ai/en/articles/9113359-about-nansen', category: '101' },
-  { title: 'Who is Nansen For?', url: 'https://academy.nansen.ai/en/articles/0560433-who-is-nansen-for', category: '101' },
+  { title: 'Who is Nansen For', url: 'https://academy.nansen.ai/en/articles/0560433-who-is-nansen-for', category: '101' },
   { title: 'Nansen AI 101', url: 'https://academy.nansen.ai/en/articles/4676097-nansen-ai-101', category: '101' },
   { title: 'Nansen Points 101', url: 'https://academy.nansen.ai/en/articles/3715302-nansen-points-101', category: '101' },
   { title: 'Nansen Staking 101', url: 'https://academy.nansen.ai/en/articles/4748110-nansen-staking-101', category: '101' },
   { title: 'Nansen Portfolio 101', url: 'https://academy.nansen.ai/en/articles/8816201-nansen-portfolio-101', category: '101' },
   { title: 'AI Signals 101', url: 'https://academy.nansen.ai/en/articles/0601583-ai-signals-101', category: '101' },
   { title: 'Deep Research 101', url: 'https://academy.nansen.ai/en/articles/1725366-deep-research-101', category: '101' },
-  { title: 'Nansen API/MCP 101', url: 'https://academy.nansen.ai/en/articles/8404875-nansen-apimcp-101', category: '101' },
-  { title: 'Labels & Watchlists 101', url: 'https://academy.nansen.ai/en/articles/2149924-labels-and-watchlists-101', category: '101' },
+  { title: 'Nansen API and MCP 101', url: 'https://academy.nansen.ai/en/articles/8404875-nansen-apimcp-101', category: '101' },
+  { title: 'Labels and Watchlists 101', url: 'https://academy.nansen.ai/en/articles/2149924-labels-and-watchlists-101', category: '101' },
   { title: 'Chains Growth 101', url: 'https://academy.nansen.ai/en/articles/1025513-chains-growth-101', category: '101' },
   { title: 'Playbook Levels', url: 'https://academy.nansen.ai/en/articles/3704489-playbook-levels', category: '101' },
 
@@ -81,17 +81,51 @@ const DAY_CATEGORY_MAP: Record<DayType, ArticleCategory[]> = {
   news: ['101', 'general', 'playbook', 'smart-money'],
 };
 
-export function getRandomArticle(dayType: DayType): AcademyArticle {
+/**
+ * Get 3 random articles from relevant categories for the given day type.
+ */
+export function getRandomArticles(dayType: DayType, count: number = 3): AcademyArticle[] {
   const relevantCategories = DAY_CATEGORY_MAP[dayType];
-
   const candidates = ACADEMY_ARTICLES.filter((a) =>
     relevantCategories.includes(a.category)
   );
+  const pool = candidates.length >= count ? candidates : ACADEMY_ARTICLES;
 
-  const pool = candidates.length > 0 ? candidates : ACADEMY_ARTICLES;
-  return pool[Math.floor(Math.random() * pool.length)];
+  // Shuffle and pick `count`
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
 }
 
-export function formatArticleFooter(article: AcademyArticle): string {
-  return `\n\n---\nLearn more: ${article.title}\n${article.url}`;
+// Keep single article getter for backwards compat
+export function getRandomArticle(dayType: DayType): AcademyArticle {
+  return getRandomArticles(dayType, 1)[0];
+}
+
+/**
+ * Format the standard footer with articles, disclaimer, and mobile link.
+ * Outputs HTML for Telegram.
+ */
+export function formatArticleFooter(articles: AcademyArticle[]): string {
+  const articleLinks = articles
+    .map((a) => `\u2022 <a href="${a.url}">${sanitizeTitle(a.title)}</a>`)
+    .join('\n');
+
+  return `
+
+<b>Get Smarter with Nansen</b>
+${articleLinks}
+
+<i>Disclaimer: Not financial advice. DYOR before investing.</i>
+-----
+<i>Data Powered by Nansen MCP</i>
+<a href="https://nsn.ai/tg-mobile">Download Nansen AI on Mobile today</a>`;
+}
+
+function sanitizeTitle(title: string): string {
+  return title
+    .replace(/&/g, 'and')
+    .replace(/"/g, '')
+    .replace(/'/g, '')
+    .replace(/</g, '')
+    .replace(/>/g, '');
 }

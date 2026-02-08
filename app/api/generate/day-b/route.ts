@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getNansenClient } from '@/lib/nansen';
 import { generateContent } from '@/lib/claude';
 import { sendTelegramMessage } from '@/lib/telegram';
-import { getRandomArticle, formatArticleFooter } from '@/lib/articles';
+import { getRandomArticles, formatArticleFooter } from '@/lib/articles';
 import { DAY_B_SYSTEM_PROMPT, buildDayBUserPrompt } from '@/lib/prompts/day-b';
 import type { GenerateResponse } from '@/lib/types';
 
@@ -44,9 +44,9 @@ export async function POST(): Promise<NextResponse<GenerateResponse>> {
       userPrompt,
     });
 
-    // Append academy article
-    const article = getRandomArticle('day-b');
-    const fullContent = generatedContent + formatArticleFooter(article);
+    // Append academy articles footer
+    const articles = getRandomArticles('day-b', 3);
+    const fullContent = generatedContent + formatArticleFooter(articles);
 
     // Send to Telegram
     const botToken = process.env.TELEGRAM_BOT_TOKEN!;
@@ -63,7 +63,7 @@ export async function POST(): Promise<NextResponse<GenerateResponse>> {
       result: {
         content: fullContent,
         telegramMessageIds: messageIds,
-        articleAppended: article,
+        articleAppended: articles[0],
         generatedAt: new Date().toISOString(),
       },
     });

@@ -1,68 +1,120 @@
-import type { NansenDEXTrade, NansenTransfer, NansenFlowIntelligence } from '../types';
-import { formatUsd, truncateAddress, formatTimestamp } from '../formatting';
+import type { NansenDEXTrade, NansenTransfer, NansenFlowIntelligence, NansenTokenScreenerItem } from '../types';
+import { formatUsd } from '../formatting';
 
-// TODO: Replace with your actual system prompt
-export const DAY_A_SYSTEM_PROMPT = `You are a professional crypto analyst writing concise, data-driven Telegram posts for the Nansen community channel.
+export const DAY_A_SYSTEM_PROMPT = `You are a marketing content creator for web platforms specializing in crypto/DeFi market analysis. Your ONLY job is to output HTML formatted text for Telegram.
 
-Your task is to analyze Smart Money flows and High Conviction onchain movements, then produce a well-formatted Telegram post.
+TASK: Analyze smart money activity in the past 24 hours and generate a market digest.
 
-Guidelines:
-- Use plain text formatting (no HTML tags). Use emoji sparingly for visual structure.
-- Keep the post between 1500-3000 characters
-- Focus on the most significant and interesting movements
-- Highlight notable wallet labels, large trades, and unusual patterns
-- Group findings by theme (e.g., accumulation signals, rotation patterns, notable exits)
-- End with a brief takeaway or sentiment summary
-- Be factual and data-driven, avoid speculation`;
+You will be given pre-fetched data including:
+- Smart money net flow data (token balances and flows)
+- Token screener data with market caps and volumes
+- High conviction transfer data
+
+From this data, extract:
+1. TOP 5 tokens by smart money net flow (exclude stablecoins, BTC, ETH, SOL, wrapped/staking versions)
+2. HIGH CONVICTION tokens where 3+ unique smart money entities are accumulating
+
+OUTPUT FORMAT (COPY EXACTLY):
+Your response must be ONLY the following HTML structure with real data:
+
+<b>Daily Onchain Digest</b>
+
+<b>Smart Money Flows</b>
+• <b>[TOKEN1]</b>: +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+• <b>[TOKEN2]</b>: +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+• <b>[TOKEN3]</b>: +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+• <b>[TOKEN4]</b>: +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+• <b>[TOKEN5]</b>: +$[AMOUNT] | MC: $[MCAP] | Vol: $[VOLUME]
+
+<b>High Conviction Accumulation</b>
+<i>3+ Smart Entities buying same token</i>
+• [TOKEN1]: [X] entities | +$[AMOUNT]
+• [TOKEN2]: [X] entities | +$[AMOUNT]
+• [TOKEN3]: [X] entities | +$[AMOUNT]
+• [TOKEN4]: [X] entities | +$[AMOUNT]
+• [TOKEN5]: [X] entities | +$[AMOUNT]
+
+RULES:
+- Output ONLY the HTML above - no other text
+- Replace [brackets] with actual data
+- Use real token names and dollar amounts
+- Sort by highest amounts first
+- EXCLUDE: BTC, ETH, SOL, stablecoins, and any wrapped/liquid staking versions
+- EXCLUDE PATTERNS: Tokens ending in "SOL" (DZSOL, JITOSOL), ending in "ETH" (stETH, rETH), starting with "w" (wBTC, wETH)
+- Format numbers: $465.1K not $465,100
+- Format market caps and volumes consistently: $2.3M, $450K
+- Use bullet point: \u2022 (not -)
+- Use <b> tags for token symbols in Smart Money Flows section
+- NO explanations, NO commentary
+- Output raw HTML text only
+- Complete the ENTIRE template
+- Always start a sentence or bullet point with a capitalised letter`;
 
 export function buildDayAUserPrompt(data: {
   dexTrades: NansenDEXTrade[];
   transfers: NansenTransfer[];
   flowIntelligence: { chain: string; symbol: string; flows: NansenFlowIntelligence }[];
+  screenerData: NansenTokenScreenerItem[];
 }): string {
-  let prompt = `Here is today's onchain data. Please analyze and create a Telegram post.\n\n`;
+  let prompt = `Generate today's smart money digest analyzing the past 24 hours.\n\nHere is the pre-fetched data:\n\n`;
 
-  // Smart Money DEX Trades
-  prompt += `## Smart Money DEX Trades (Last 24h)\n`;
-  if (data.dexTrades.length === 0) {
-    prompt += `No significant smart money DEX trades detected.\n\n`;
-  } else {
-    data.dexTrades.slice(0, 30).forEach((trade) => {
-      const label = trade.trader_label || truncateAddress(trade.trader_address);
-      const smLabel = trade.smart_money_label ? ` [${trade.smart_money_label}]` : '';
-      prompt += `- ${label}${smLabel} bought ${trade.token_bought_symbol} with ${trade.token_sold_symbol} (${formatUsd(trade.trade_value_usd)}) on ${trade.chain} via ${trade.dex_name || 'DEX'} at ${formatTimestamp(trade.block_timestamp)}\n`;
+  // Smart Money Screener Data (net flows + market data)
+  prompt += `## Token Screener Data (Smart Money Net Flows, Market Cap, Volume)\n`;
+  if (data.screenerData.length > 0) {
+    data.screenerData.forEach((token) => {
+      const chain = token.chain.toUpperCase().replace('ETHEREUM', 'ETH').replace('SOLANA', 'SOL');
+      prompt += `- ${token.symbol} (${chain}): Net Flow ${formatUsd(token.net_flow_usd)}, MC: ${formatUsd(token.market_cap_usd)}, Vol: ${formatUsd(token.volume_usd)}, Price Change: ${token.price_change_percentage.toFixed(1)}%`;
+      if (token.sectors.length > 0) prompt += `, Sectors: ${token.sectors.join(', ')}`;
+      prompt += `\n`;
     });
-    prompt += `\n`;
+  } else {
+    prompt += `No screener data available.\n`;
   }
+  prompt += `\n`;
 
-  // High Conviction Transfers
-  prompt += `## High Conviction Transfers\n`;
-  if (data.transfers.length === 0) {
-    prompt += `No high-value transfers detected.\n\n`;
-  } else {
-    data.transfers.slice(0, 20).forEach((t) => {
-      const from = t.from_address_label || truncateAddress(t.from_address);
-      const to = t.to_address_label || truncateAddress(t.to_address);
-      prompt += `- ${from} -> ${to}: ${formatUsd(t.transfer_value_usd)} ${t.token_symbol} on ${t.chain} at ${formatTimestamp(t.block_timestamp)}\n`;
+  // Smart Money DEX Trades (for high conviction detection)
+  prompt += `## Smart Money DEX Trades (Last 24h) - Use to identify High Conviction tokens\n`;
+  if (data.dexTrades.length > 0) {
+    // Aggregate by token bought to identify high conviction
+    const tokenBuyers: Record<string, { entities: Set<string>; totalUsd: number; chain: string }> = {};
+    data.dexTrades.forEach((trade) => {
+      const symbol = trade.token_bought_symbol;
+      if (!tokenBuyers[symbol]) {
+        tokenBuyers[symbol] = { entities: new Set(), totalUsd: 0, chain: trade.chain };
+      }
+      const entity = trade.trader_label || trade.trader_address;
+      tokenBuyers[symbol].entities.add(entity);
+      tokenBuyers[symbol].totalUsd += trade.trade_value_usd;
     });
-    prompt += `\n`;
+
+    // Show aggregated data
+    const sorted = Object.entries(tokenBuyers)
+      .sort(([, a], [, b]) => b.entities.size - a.entities.size)
+      .slice(0, 20);
+
+    sorted.forEach(([symbol, info]) => {
+      prompt += `- ${symbol} (${info.chain}): ${info.entities.size} unique entities, Total: ${formatUsd(info.totalUsd)}\n`;
+    });
+  } else {
+    prompt += `No DEX trade data available.\n`;
   }
+  prompt += `\n`;
 
   // Flow Intelligence
   prompt += `## Flow Intelligence Summary\n`;
-  if (data.flowIntelligence.length === 0) {
-    prompt += `No flow intelligence data available.\n\n`;
-  } else {
+  if (data.flowIntelligence.length > 0) {
     data.flowIntelligence.forEach((fi) => {
-      prompt += `### ${fi.chain} - ${fi.symbol}\n`;
-      prompt += `- Whale net flow: ${formatUsd(fi.flows.whale_net_flow_usd)} (${fi.flows.whale_wallet_count} wallets)\n`;
-      prompt += `- Smart Trader net flow: ${formatUsd(fi.flows.smart_trader_net_flow_usd)} (${fi.flows.smart_trader_wallet_count} wallets)\n`;
-      prompt += `- Exchange net flow: ${formatUsd(fi.flows.exchange_net_flow_usd)} (${fi.flows.exchange_wallet_count} wallets)\n`;
-      prompt += `- Fresh Wallets net flow: ${formatUsd(fi.flows.fresh_wallets_net_flow_usd)} (${fi.flows.fresh_wallets_wallet_count} wallets)\n\n`;
+      prompt += `- ${fi.symbol} (${fi.chain}): Smart Trader flow: ${formatUsd(fi.flows.smart_trader_net_flow_usd)}, Whale flow: ${formatUsd(fi.flows.whale_net_flow_usd)}, Exchange flow: ${formatUsd(fi.flows.exchange_net_flow_usd)}\n`;
     });
+  } else {
+    prompt += `No flow intelligence data available.\n`;
   }
+  prompt += `\n`;
 
-  prompt += `\nPlease create a formatted Telegram post summarizing the key Smart Money flows and High Conviction movements for today.`;
+  prompt += `Requirements:\n`;
+  prompt += `1. Top 5 Smart Money net inflows (exclude stables/BTC/ETH/SOL) - include MC and 24h volume\n`;
+  prompt += `2. Top 5 High Conviction tokens (3+ unique smart entities accumulating)\n`;
+  prompt += `Output raw HTML for Telegram.`;
 
   return prompt;
 }
