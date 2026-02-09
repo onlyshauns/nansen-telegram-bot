@@ -77,7 +77,12 @@ export default function Home() {
     ]);
 
     try {
-      const response = await fetch(button.endpoint, { method: 'POST' });
+      const response = await fetch(button.endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}`,
+        },
+      });
       const data: GenerateResponse = await response.json();
 
       if (data.success && data.result) {

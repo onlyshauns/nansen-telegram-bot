@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getNansenClient } from '@/lib/nansen';
 import { generateContent } from '@/lib/claude';
 import { sendTelegramMessage } from '@/lib/telegram';
@@ -8,7 +8,12 @@ import type { GenerateResponse } from '@/lib/types';
 
 export const maxDuration = 60;
 
-export async function POST(): Promise<NextResponse<GenerateResponse>> {
+export async function POST(request: NextRequest): Promise<NextResponse<GenerateResponse>> {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const client = getNansenClient();
 
