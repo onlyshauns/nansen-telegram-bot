@@ -9,9 +9,9 @@ Automated crypto/DeFi market intelligence bot that fetches on-chain data from Na
 | Sun, Mon, Wed | **Day A** | Smart Money Flows + High Conviction Signals |
 | Tue, Thu, Sat | **Day B** | Memecoin Activity + Hyperliquid Perps |
 | Fri | **Day C** | Weekly Roundup |
-| Daily (10pm SGT) | **News** | Crypto News Summary |
+| Daily (10am SGT) | **News** | Crypto News Summary |
 
-Day A/B/C posts at 10am SGT (02:00 UTC). News posts at 10pm SGT (14:00 UTC).
+News posts at 10am SGT (02:00 UTC). Day A/B/C posts at 6pm SGT (10:00 UTC).
 
 ## Architecture
 

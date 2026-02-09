@@ -2,14 +2,14 @@ name: Telegram Bot Cron
 
 on:
   schedule:
-    # News: 10pm SGT daily (14:00 UTC)
-    - cron: '0 14 * * *'
-    # Day A: 10am SGT on Sun, Mon, Wed (02:00 UTC)
-    - cron: '0 2 * * 0,1,3'
-    # Day B: 10am SGT on Tue, Thu, Sat (02:00 UTC)
-    - cron: '0 2 * * 2,4,6'
-    # Day C: 10am SGT on Fri (02:00 UTC)
-    - cron: '0 2 * * 5'
+    # News: 10am SGT daily (02:00 UTC)
+    - cron: '0 2 * * *'
+    # Day A: 6pm SGT on Sun, Mon, Wed (10:00 UTC)
+    - cron: '0 10 * * 0,1,3'
+    # Day B: 6pm SGT on Tue, Thu, Sat (10:00 UTC)
+    - cron: '0 10 * * 2,4,6'
+    # Day C: 6pm SGT on Fri (10:00 UTC)
+    - cron: '0 10 * * 5'
   workflow_dispatch:
     inputs:
       endpoint:
@@ -35,10 +35,10 @@ jobs:
           else
             CRON="${{ github.event.schedule }}"
             case "$CRON" in
-              "0 14 * * *")     echo "path=news" >> $GITHUB_OUTPUT ;;
-              "0 2 * * 0,1,3")  echo "path=day-a" >> $GITHUB_OUTPUT ;;
-              "0 2 * * 2,4,6")  echo "path=day-b" >> $GITHUB_OUTPUT ;;
-              "0 2 * * 5")      echo "path=day-c" >> $GITHUB_OUTPUT ;;
+              "0 2 * * *")      echo "path=news" >> $GITHUB_OUTPUT ;;
+              "0 10 * * 0,1,3") echo "path=day-a" >> $GITHUB_OUTPUT ;;
+              "0 10 * * 2,4,6") echo "path=day-b" >> $GITHUB_OUTPUT ;;
+              "0 10 * * 5")     echo "path=day-c" >> $GITHUB_OUTPUT ;;
               *)                echo "path=unknown" >> $GITHUB_OUTPUT ;;
             esac
           fi
