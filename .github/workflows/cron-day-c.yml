@@ -1,0 +1,28 @@
+name: "Cron: Day C (6pm SGT Fri)"
+
+on:
+  schedule:
+    - cron: '0 10 * * 5'
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger day-c
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://nansen-telegram-bot.vercel.app/api/generate/day-c")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+
+          echo "Status: $HTTP_CODE"
+          echo "Response: $BODY"
+
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "::error::Request failed with status $HTTP_CODE"
+            exit 1
+          fi
