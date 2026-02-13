@@ -1,8 +1,6 @@
 name: "Cron: Day B (6pm SGT Tue/Thu/Sat)"
 
 on:
-  schedule:
-    - cron: '0 10 * * 2,4,6'
   workflow_dispatch:
 
 jobs:

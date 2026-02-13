@@ -16,7 +16,7 @@ News posts at 10am SGT (02:00 UTC). Day A/B/C posts at 6pm SGT (10:00 UTC).
 ## Architecture
 
 ```
-GitHub Actions Cron (minute-precise scheduling)
+Cloudflare Worker Cron (exact-time scheduling)
   -> POST /api/generate/day-x (with Bearer auth)
     -> Fetch data from Nansen REST API (parallel across chains)
     -> Build structured prompt from fetched data
@@ -29,7 +29,7 @@ GitHub Actions Cron (minute-precise scheduling)
 ## Tech Stack
 
 - **Next.js 15** (App Router) on Vercel
-- **GitHub Actions** for cron scheduling (minute-level precision)
+- **Cloudflare Workers** for cron scheduling (exact-time precision)
 - **Anthropic Claude API** for content generation
 - **Nansen REST API** for on-chain data (smart money trades, token screener, flow intelligence, perp trades)
 - **Telegram Bot API** for publishing (HTML parse mode, auto-split for long messages)
@@ -41,7 +41,14 @@ GitHub Actions Cron (minute-precise scheduling)
 ```
 .github/
   workflows/
-    cron.yml                    # GitHub Actions cron (4 schedules + manual dispatch)
+    cron-day-a.yml              # Manual dispatch only (backup)
+    cron-day-b.yml
+    cron-day-c.yml
+    cron-news.yml
+cron-worker/                    # Cloudflare Worker for cron scheduling
+  src/index.ts                  # Cron handler with day-of-week routing
+  wrangler.toml                 # 2 cron triggers: news (02:00 UTC) + day (10:00 UTC)
+  package.json
 app/
   page.tsx                      # Web UI with 4 trigger buttons + preview
   api/
@@ -50,11 +57,6 @@ app/
       day-b/route.ts            # Memecoin + Hyperliquid Perps (Bearer auth)
       day-c/route.ts            # Weekly Roundup (Bearer auth)
       news/route.ts             # News Summary (Bearer auth)
-    cron/
-      day-a/route.ts            # Legacy Vercel cron routes (CRON_SECRET auth)
-      day-b/route.ts
-      day-c/route.ts
-      news/route.ts
 lib/
   nansen.ts                     # Nansen REST API client with retry + normalizers
   claude.ts                     # Anthropic SDK wrapper
@@ -83,7 +85,13 @@ CRON_SECRET=                    # Shared secret for endpoint auth
 NEXT_PUBLIC_CRON_SECRET=        # Same value, exposed to web UI
 ```
 
-### GitHub Actions
+### Cloudflare Worker
+
+```
+CRON_SECRET=                    # Set via: npx wrangler secret put CRON_SECRET
+```
+
+### GitHub Actions (manual dispatch only)
 
 ```
 CRON_SECRET=                    # Set in repo Settings > Secrets > Actions
@@ -91,9 +99,12 @@ CRON_SECRET=                    # Set in repo Settings > Secrets > Actions
 
 ## Scheduling
 
-Cron scheduling is handled by GitHub Actions (`.github/workflows/cron.yml`) for minute-level precision. Vercel's Hobby plan only guarantees +/-59 min accuracy, so GitHub Actions is used instead.
+Cron scheduling is handled by a **Cloudflare Worker** (`cron-worker/`) with exact-time precision. Two cron triggers fire daily:
 
-You can also manually trigger any endpoint from the GitHub **Actions** tab > **Telegram Bot Cron** > **Run workflow** and select the endpoint.
+- `0 2 * * *` (02:00 UTC / 10am SGT) -> triggers News endpoint
+- `0 10 * * *` (10:00 UTC / 6pm SGT) -> routes to Day A/B/C based on day of week
+
+GitHub Actions workflows are kept as manual-dispatch backups (no cron schedules). You can trigger any endpoint from the GitHub **Actions** tab > select workflow > **Run workflow**.
 
 ## Development
 
@@ -106,4 +117,5 @@ Manual triggers available at `http://localhost:3000` via the web UI, or via POST
 
 ## Deployment
 
-Deployed on Vercel, auto-deploys on push to `main` via GitHub integration.
+- **App**: Deployed on Vercel, auto-deploys on push to `main` via GitHub integration.
+- **Cron**: Cloudflare Worker deployed via `cd cron-worker && npx wrangler deploy`.

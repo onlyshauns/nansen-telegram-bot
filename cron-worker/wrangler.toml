@@ -1,0 +1,12 @@
+name = "nansen-telegram-cron"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+[triggers]
+crons = [
+  "0 2 * * *",    # News: 10am SGT daily
+  "0 10 * * *",   # Day A/B/C: 6pm SGT (routed by day of week in code)
+]
+
+[vars]
+API_BASE_URL = "https://nansen-telegram-bot.vercel.app"
